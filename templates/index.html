@@ -7,18 +7,18 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Outfit:wght@700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/css/style.css">
+  <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
 
   <div class="container">
     <header>
       <div class="logo-area">
-        <img src="/static/assets/logo.png" alt="NeuroScan Logo">
+        <img src="/static/logo.png" alt="NeuroScan Logo">
         <h1>NeuroScan</h1>
       </div>
       <div class="nav-links">
-        <a id="research-link" style="color: var(--text-dim); text-decoration: none; font-weight: 600;">Research</a>
+        <a id="research-link" href="#research-section" style="color: var(--text-dim); text-decoration: none; font-weight: 600; cursor: pointer;">Research</a>
       </div>
     </header>
 
@@ -29,11 +29,11 @@
       </section>
 
       <div class="main-card">
-        <div class="upload-zone" id="drop-zone">
+        <div class="upload-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
           <div class="icon-box">🎤</div>
           <h3>Upload Voice Sample</h3>
-          <p style="color: var(--text-dim); margin-top: 0.5rem;">Drag & drop a WAV/MP3 file, or click to browse</p>
-          <input type="file" id="file-input" accept=".wav,.mp3,.ogg,.flac">
+          <p id="file-name-display" style="color: var(--text-dim); margin-top: 0.5rem;">Drag & drop a WAV/MP3 file, or click to browse</p>
+          <input type="file" id="file-input" accept=".wav,.mp3,.ogg,.flac" hidden>
         </div>
 
         <div class="recording-controls">
@@ -41,26 +41,26 @@
             <span class="record-icon">🎤</span>
             <span id="record-text">Record Voice</span>
           </button>
+          <button id="analyze-btn" class="btn btn-primary" style="margin-top: 1rem; display: none;" onclick="uploadAudio()">Analyze Now</button>
         </div>
 
-        <div class="status-area">
+        <div class="status-area" id="status-area" style="display: none;">
           <p id="status-text">Processing your audio...</p>
           <div class="progress-bar">
-            <div class="progress-fill"></div>
+            <div class="progress-fill" style="width: 100%;"></div>
           </div>
         </div>
 
-        <!-- Result Section -->
-        <div class="results-area">
+        <div class="results-area" id="results-area" style="display: none;">
           <div class="result-header">
             <h3>Analysis Result</h3>
-            <span id="result-badge" class="result-badge">Detected</span>
+            <span id="result-badge" class="result-badge">Analysis Complete</span>
           </div>
 
           <div class="confidence-module">
             <p style="color: var(--text-dim); font-size: 0.9rem; margin-bottom: 0.5rem;">Prediction Confidence</p>
-            <div id="confidence-value" class="confidence-value">98.2%</div>
-            <h2 id="result-label" style="font-size: 2rem; margin-bottom: 1.5rem;">Parkinson's Disease</h2>
+            <div id="confidence-value" class="confidence-value">0%</div>
+            <h2 id="result-label" style="font-size: 2rem; margin-bottom: 1.5rem;">Processing...</h2>
           </div>
 
           <div class="probability-container">
@@ -69,14 +69,13 @@
               <span>Parkinson's</span>
             </div>
             <div class="progress-bar" style="height: 12px;">
-              <div id="probability-bar" class="progress-fill" style="width: 80%;"></div>
+              <div id="probability-bar" class="progress-fill" style="width: 0%;"></div>
             </div>
           </div>
 
-          <!-- Spectrogram Visualization -->
-          <div class="spectrogram-container" style="display: none;">
+          <div id="spectrogram-container" class="spectrogram-container" style="margin-top: 20px;">
             <h4>Voice Pattern Analysis (Mel Spectrogram)</h4>
-            <img id="spectrogram-display" src="" alt="Spectrogram Visualization" class="spectrogram-img">
+            <img id="spectrogram-display" src="" alt="Spectrogram Visualization" class="spectrogram-img" style="width: 100%; border-radius: 8px; margin-top: 10px;">
           </div>
 
           <div style="margin-top: 2rem; text-align: center;">
@@ -84,8 +83,7 @@
           </div>
         </div>
 
-        <!-- Research Section (Initially Hidden) -->
-        <div id="research-section" class="research-section">
+        <div id="research-section" class="research-section" style="margin-top: 4rem;">
           <h3>Understanding Parkinson's Disease</h3>
           <p style="color: var(--text-dim); margin-bottom: 2rem;">Essential information for patients and families.</p>
           
@@ -94,15 +92,13 @@
               <h4>What is Parkinson's?</h4>
               <p>Learn about dopamine loss, the substantia nigra, and the biological causes behind Parkinson's disease.</p>
             </a>
-            
             <a href="https://www.mayoclinic.org/diseases-conditions/parkinsons-disease/symptoms-causes/syc-20376055" target="_blank" class="research-card">
               <h4>Symptoms & Signs</h4>
-              <p>A comprehensive guide to motor symptoms like tremors and stiffness, as well as non-motor signs like sleep issues.</p>
+              <p>A comprehensive guide to motor symptoms like tremors and stiffness.</p>
             </a>
-            
             <a href="https://www.michaeljfox.org/parkinsons-101" target="_blank" class="research-card">
               <h4>Living with PD</h4>
-              <p>Explore current treatment options, therapies, and the latest research in the search for a cure.</p>
+              <p>Explore current treatment options, therapies, and the latest research.</p>
             </a>
           </div>
         </div>
@@ -112,12 +108,61 @@
     <footer>
       <p>&copy; 2026 NeuroScan AI Laboratory</p>
       <div class="disclaimer">
-        <strong>⚠️ MEDICAL DISCLAIMER:</strong> This tool is for research and educational purposes only. It is not intended for medical diagnosis. Please consult a professional healthcare provider for medical concerns.
+        <strong>⚠️ MEDICAL DISCLAIMER:</strong> This tool is for research and educational purposes only. It is not intended for medical diagnosis.
       </div>
     </footer>
   </div>
 
-  <script src="/static/js/app.js"></script>
+  <script>
+    const fileInput = document.getElementById('file-input');
+    const fileNameDisplay = document.getElementById('file-name-display');
+    const analyzeBtn = document.getElementById('analyze-btn');
+
+    // Show "Analyze" button when file is picked
+    fileInput.addEventListener('change', function() {
+      if (this.files[0]) {
+        fileNameDisplay.innerText = "Selected: " + this.files[0].name;
+        analyzeBtn.style.display = 'block';
+      }
+    });
+
+    async function uploadAudio() {
+      const file = fileInput.files[0];
+      if (!file) return;
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      // Show Status / Hide Results
+      document.getElementById('status-area').style.display = 'block';
+      document.getElementById('results-area').style.display = 'none';
+      analyzeBtn.disabled = true;
+
+      try {
+        const response = await fetch('/predict', { method: 'POST', body: formData });
+        const data = await response.json();
+
+        if (data.error) {
+          alert("Error: " + data.error);
+        } else {
+          // Success! Populate Results
+          document.getElementById('status-area').style.display = 'none';
+          document.getElementById('results-area').style.display = 'block';
+          
+          document.getElementById('result-label').innerText = data.label;
+          document.getElementById('confidence-value').innerText = (data.confidence * 100).toFixed(1) + "%";
+          document.getElementById('probability-bar').style.width = (data.probability * 100) + "%";
+          
+          // Display the spectrogram
+          document.getElementById('spectrogram-display').src = "data:image/png;base64," + data.spectrogram;
+        }
+      } catch (err) {
+        alert("Server error. Check your Render logs.");
+        console.error(err);
+      }
+    }
+  </script>
+
+  <script src="/static/app.js"></script>
 </body>
 </html>
-
