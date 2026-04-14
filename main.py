@@ -1,8 +1,9 @@
 import os
 import io
+import base64
 import numpy as np
 import librosa
-import tensorflow as tf  # This is the change
+import tensorflow as tf
 from fastapi import FastAPI, UploadFile, File, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -11,7 +12,6 @@ from PIL import Image
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-import base64
 
 # ============================================================
 # CONFIGURATION
@@ -29,28 +29,32 @@ CONFIG = {
 
 app = FastAPI(title="NeuroScan: Parkinson's AI Detector")
 
-# Mount static files and templates
+# --- FIXED PATHING FOR RENDER ---
 base_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Setup Templates
 templates = Jinja2Templates(directory=os.path.join(base_dir, "templates"))
+
+# Setup Static Files
 static_path = os.path.join(base_dir, "static")
 if os.path.exists(static_path):
     app.mount("/static", StaticFiles(directory=static_path), name="static")
 
-
-
 # ============================================================
 # LOAD MODEL & THRESHOLD
 # ============================================================
+interpreter = None
 if not os.path.exists(CONFIG["MODEL_PATH"]):
     print(f"ERROR: Model not found at {CONFIG['MODEL_PATH']}")
-    model = None
 else:
-    interpreter = tf.lite.Interpreter(model_path="model.tflite")
-    interpreter.allocate_tensors()
-
-    input_details = interpreter.get_input_details()
-    output_details = interpreter.get_output_details()
-    print("[OK] TFLite Model loaded successfully.")
+    try:
+        interpreter = tf.lite.Interpreter(model_path=CONFIG["MODEL_PATH"])
+        interpreter.allocate_tensors()
+        input_details = interpreter.get_input_details()
+        output_details = interpreter.get_output_details()
+        print("[OK] TFLite Model loaded successfully.")
+    except Exception as e:
+        print(f"ERROR loading model: {e}")
 
 if os.path.exists(CONFIG["THRESHOLD_PATH"]):
     with open(CONFIG["THRESHOLD_PATH"], "r") as f:
@@ -66,17 +70,14 @@ else:
 def process_audio(audio_bytes):
     """Convert audio bytes to normalized 128x128 Mel Spectrogram and return Base64 image."""
     try:
-        # Load audio using librosa
         y, sr = librosa.load(io.BytesIO(audio_bytes), sr=CONFIG["SAMPLE_RATE"], duration=CONFIG["DURATION"])
 
-        # Pad or trim to exact duration
         target_length = CONFIG["SAMPLE_RATE"] * CONFIG["DURATION"]
         if len(y) < target_length:
             y = np.pad(y, (0, target_length - len(y)), mode='constant')
         else:
             y = y[:target_length]
 
-        # Compute Mel Spectrogram
         mel_spec = librosa.feature.melspectrogram(
             y=y, sr=sr,
             n_mels=CONFIG["N_MELS"],
@@ -85,7 +86,6 @@ def process_audio(audio_bytes):
         )
         mel_spec_db = librosa.power_to_db(mel_spec, ref=np.max)
 
-        # 1. Generate Visualization (Base64)
         plt.figure(figsize=(4, 4))
         plt.axis('off')
         plt.tight_layout(pad=0)
@@ -97,7 +97,6 @@ def process_audio(audio_bytes):
         buf.seek(0)
         spec_base64 = base64.b64encode(buf.read()).decode('utf-8')
 
-        # 2. Process for Model (Resize & Normalize)
         img = Image.fromarray(mel_spec_db)
         img_resized = img.resize(CONFIG["IMG_SIZE"], Image.LANCZOS)
         mel_array = np.array(img_resized, dtype=np.float32)
@@ -117,8 +116,8 @@ def process_audio(audio_bytes):
 # ============================================================
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
+    # FIXED: Mandatory syntax for Jinja2 TemplateResponse
     return templates.TemplateResponse("index.html", {"request": request})
-
 
 @app.post("/predict")
 async def predict_audio(file: UploadFile = File(...)):
@@ -132,7 +131,6 @@ async def predict_audio(file: UploadFile = File(...)):
         if mel_array is None:
             return JSONResponse(status_code=400, content={"error": "Invalid audio file or processing failed."})
 
-        # Inference (TFLite)
         mel_input = mel_array[np.newaxis, ..., np.newaxis]
         interpreter.set_tensor(input_details[0]['index'], mel_input)
         interpreter.invoke()
