@@ -2,7 +2,7 @@ fastapi
 uvicorn
 jinja2
 python-multipart
-tflite-runtime
+tensorflow-cpu==2.15.0
 librosa
 numpy
 pillow
