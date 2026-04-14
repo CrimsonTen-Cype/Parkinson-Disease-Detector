@@ -2,7 +2,7 @@ import os
 import io
 import numpy as np
 import librosa
-import ai_edge_litert.interpreter as tflite
+import tflite_runtime.interpreter as tflite
 from fastapi import FastAPI, UploadFile, File, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
