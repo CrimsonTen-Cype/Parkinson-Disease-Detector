@@ -2,15 +2,14 @@ import os
 import io
 import numpy as np
 import librosa
-import tflite_runtime.interpreter as tflite
+import tensorflow as tf  # This is the change
 from fastapi import FastAPI, UploadFile, File, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from PIL import Image
-from pydantic import BaseModel
 import matplotlib
-matplotlib.use('Agg') 
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import base64
 
@@ -41,8 +40,9 @@ if not os.path.exists(CONFIG["MODEL_PATH"]):
     print(f"ERROR: Model not found at {CONFIG['MODEL_PATH']}")
     model = None
 else:
-    interpreter = tflite.Interpreter(model_path=CONFIG["MODEL_PATH"])
+    interpreter = tf.lite.Interpreter(model_path="model.tflite")
     interpreter.allocate_tensors()
+
     input_details = interpreter.get_input_details()
     output_details = interpreter.get_output_details()
     print("[OK] TFLite Model loaded successfully.")
