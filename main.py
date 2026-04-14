@@ -30,9 +30,13 @@ CONFIG = {
 app = FastAPI(title="NeuroScan: Parkinson's AI Detector")
 
 # Mount static files and templates
-app.mount("/static", StaticFiles(directory="static"), name="static")
 base_dir = os.path.dirname(os.path.abspath(__file__))
 templates = Jinja2Templates(directory=os.path.join(base_dir, "templates"))
+static_path = os.path.join(base_dir, "static")
+if os.path.exists(static_path):
+    app.mount("/static", StaticFiles(directory=static_path), name="static")
+
+
 
 # ============================================================
 # LOAD MODEL & THRESHOLD
