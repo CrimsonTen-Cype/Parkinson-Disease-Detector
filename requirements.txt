@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+jinja2
+python-multipart
+ai-edge-litert
+librosa
+numpy
+pillow
+scikit-learn
+matplotlib
