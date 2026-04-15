@@ -14,13 +14,13 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 # ============================================================
-# CONFIGURATION - SPEED OPTIMIZED
+# CONFIGURATION
 # ============================================================
 CONFIG = {
     "MODEL_PATH": "model.tflite",
     "THRESHOLD_PATH": "best_threshold.txt",
     "SAMPLE_RATE": 16000,
-    "DURATION": 6,          # Hard limit to 6 seconds for speed
+    "DURATION": 6,
     "N_MELS": 64,
     "HOP_LENGTH": 512,
     "N_FFT": 1024,
@@ -46,6 +46,7 @@ output_details = None
 
 try:
     if os.path.exists(CONFIG["MODEL_PATH"]):
+        # TFLite is more version-resilient than .h5 or .keras files
         interpreter = tf.lite.Interpreter(model_path=CONFIG["MODEL_PATH"])
         interpreter.allocate_tensors()
         input_details = interpreter.get_input_details()
@@ -88,8 +89,10 @@ def process_audio(audio_bytes):
         buf.seek(0)
         spec_base64 = base64.b64encode(buf.read()).decode('utf-8')
 
+        # Robust Normalization
         mel_min, mel_max = mel_spec_db.min(), mel_spec_db.max()
-        mel_norm = (mel_spec_db - mel_min) / (mel_max - mel_min) if (mel_max - mel_min) > 0 else mel_spec_db
+        diff = mel_max - mel_min
+        mel_norm = (mel_spec_db - mel_min) / diff if diff > 0 else mel_spec_db
         
         img = Image.fromarray((mel_norm * 255).astype(np.uint8))
         img_resized = img.resize(CONFIG["IMG_SIZE"], Image.Resampling.NEAREST)
@@ -133,7 +136,6 @@ async def predict_audio(file: UploadFile = File(...)):
             "spectrogram": spec_base64
         }
     except Exception as e:
-        # Syntax error was here; now correctly closed.
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 if __name__ == "__main__":
