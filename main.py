@@ -20,7 +20,7 @@ CONFIG = {
     "MODEL_PATH": "model.tflite",
     "THRESHOLD_PATH": "best_threshold.txt",
     "SAMPLE_RATE": 22050,
-    "DURATION": 3,
+    "DURATION": 6,  # Force analysis to first 6 seconds
     "N_MELS": 128,
     "HOP_LENGTH": 512,
     "N_FFT": 2048,
@@ -29,17 +29,12 @@ CONFIG = {
 
 app = FastAPI(title="NeuroScan: Parkinson's AI Detector")
 
-# ============================================================
-# FOLDER PATHS (RENDER SAFE)
-# ============================================================
 base_dir = os.path.dirname(os.path.abspath(__file__))
 templates_dir = os.path.join(base_dir, "templates")
 static_dir = os.path.join(base_dir, "static")
 
-# Initialize templates
 templates = Jinja2Templates(directory=templates_dir)
 
-# Mount static ONLY if the folder actually exists
 if os.path.exists(static_dir):
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
@@ -54,8 +49,6 @@ try:
         input_details = interpreter.get_input_details()
         output_details = interpreter.get_output_details()
         print("[OK] TFLite Model loaded successfully.")
-    else:
-        print(f"[ERROR] Model file not found at {CONFIG['MODEL_PATH']}")
 except Exception as e:
     print(f"[ERROR] Failed to load model: {e}")
 
@@ -66,11 +59,14 @@ else:
     THRESHOLD = 0.5
 
 # ============================================================
-# AUDIO PROCESSING UTILS
+# AUDIO PROCESSING UTILS (FORCED DURATION)
 # ============================================================
 def process_audio(audio_bytes):
     try:
-        y, sr = librosa.load(io.BytesIO(audio_bytes), sr=CONFIG["SAMPLE_RATE"], duration=CONFIG["DURATION"])
+        # DURATION parameter forces librosa to stop reading after 6 seconds
+        y, sr = librosa.load(io.BytesIO(audio_bytes), 
+                             sr=CONFIG["SAMPLE_RATE"], 
+                             duration=CONFIG["DURATION"])
         
         target_length = CONFIG["SAMPLE_RATE"] * CONFIG["DURATION"]
         if len(y) < target_length:
@@ -86,6 +82,7 @@ def process_audio(audio_bytes):
         )
         mel_spec_db = librosa.power_to_db(mel_spec, ref=np.max)
 
+        # Generate Spectrogram Image for UI
         plt.figure(figsize=(4, 4))
         plt.axis('off')
         plt.tight_layout(pad=0)
@@ -93,17 +90,15 @@ def process_audio(audio_bytes):
         
         buf = io.BytesIO()
         plt.savefig(buf, format='png', bbox_inches='tight', pad_inches=0)
-        plt.close()
+        plt.close('all') # Essential to free memory on Render
         buf.seek(0)
         spec_base64 = base64.b64encode(buf.read()).decode('utf-8')
 
-        img = Image.fromarray(mel_spec_db)
-        img_resized = img.resize(CONFIG["IMG_SIZE"], Image.LANCZOS)
-        mel_array = np.array(img_resized, dtype=np.float32)
-
-        mel_min, mel_max = mel_array.min(), mel_array.max()
-        if mel_max - mel_min > 0:
-            mel_array = (mel_array - mel_min) / (mel_max - mel_min)
+        # Prepare Mel-array for CNN (0-1 Normalization)
+        img = Image.fromarray(((mel_spec_db - mel_spec_db.min()) / 
+                               (mel_spec_db.max() - mel_spec_db.min()) * 255).astype(np.uint8))
+        img_resized = img.resize(CONFIG["IMG_SIZE"], Image.Resampling.LANCZOS)
+        mel_array = np.array(img_resized, dtype=np.float32) / 255.0
         
         return mel_array, spec_base64
 
@@ -116,21 +111,19 @@ def process_audio(audio_bytes):
 # ============================================================
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
-    # THE FINAL FIX: request as positional arg 1, template as arg 2.
-    # This completely satisfies the strict requirement in your Render logs.
-    return templates.TemplateResponse(request, "index.html")
+    return templates.TemplateResponse(request=request, name="index.html")
 
 @app.post("/predict")
 async def predict_audio(file: UploadFile = File(...)):
     if interpreter is None:
-        return JSONResponse(status_code=500, content={"error": "Model not loaded on server."})
+        return JSONResponse(status_code=500, content={"error": "Model not loaded."})
 
     try:
         content = await file.read()
         mel_array, spec_base64 = process_audio(content)
 
         if mel_array is None:
-            return JSONResponse(status_code=400, content={"error": "Invalid audio file or processing failed."})
+            return JSONResponse(status_code=400, content={"error": "Analysis failed."})
 
         mel_input = mel_array[np.newaxis, ..., np.newaxis]
         interpreter.set_tensor(input_details[0]['index'], mel_input)
@@ -145,7 +138,6 @@ async def predict_audio(file: UploadFile = File(...)):
             "label": label,
             "probability": round(probability, 4),
             "confidence": round(confidence, 4),
-            "threshold": THRESHOLD,
             "spectrogram": spec_base64
         }
 
@@ -154,6 +146,5 @@ async def predict_audio(file: UploadFile = File(...)):
 
 if __name__ == "__main__":
     import uvicorn
-    # Render requires binding to $PORT environment variable
     port = int(os.environ.get("PORT", 8000))
     uvicorn.run(app, host="0.0.0.0", port=port)
